@@ -1,25 +1,97 @@
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Calendar as CalendarIcon, Clock } from 'lucide-react-native';
+import { useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { format, set } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useNavigation } from 'expo-router';
+
 
 export default function Appointments() {
-  const appointments = [
-    {
-      id: 1,
-      professional: 'Dr. Ana Silva',
-      service: 'Consulta Odontológica',
-      date: '15 Mar',
-      time: '14:30',
-      status: 'confirmed',
-    },
-    {
-      id: 2,
-      professional: 'João Santos',
-      service: 'Manutenção Elétrica',
-      date: '17 Mar',
-      time: '10:00',
-      status: 'pending',
-    },
-  ];
+  const [loggedUser, setLoggedUser] = useState<any>(null);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserAndAppointments = async () => {
+      try {
+        const user = await AsyncStorage.getItem('user');
+        if (user) {
+          const parsedUser = JSON.parse(user);
+          setLoggedUser(parsedUser);
+          await fetchAppointments(parsedUser.id);
+        } else {
+          setLoggedUser(null);
+        }
+      } catch (error) {
+        console.error('Erro ao recuperar o usuário:', error);
+      }
+    };
+
+    fetchUserAndAppointments();
+  }, []);
+
+  async function fetchAppointments(userId: string) {
+    try {
+      setLoading(true);
+  
+      const { data, error } = await supabase
+        .from('user_appointments')
+        .select('*')
+        .eq('user_id', userId)
+        .order('appointment_date', { ascending: true });
+  
+      if (error) throw error;
+  
+  
+      setAppointments(data);
+    } catch (error) {
+      console.error('Erro ao buscar agendamentos:', error);
+    } finally {
+      setLoading(false);
+    }
+  }
+  
+
+  function formatDate(dateString: string) {
+    try {
+      const date = new Date(dateString);
+      return format(date, "dd MMM", { locale: ptBR });
+    } catch {
+      return 'Data inválida';
+    }
+  }
+
+  function formatTime(dateString: string) {
+    try {
+      const date = new Date(dateString);
+      return format(date, "HH:mm");
+    } catch {
+      return '--:--';
+    }
+  }
+
+  function getStatusText(status: string) {
+    const statusMap = {
+      pending: 'Pendente',
+      confirmed: 'Confirmado',
+      cancelled: 'Cancelado',
+      completed: 'Concluído'
+    };
+    return statusMap[status as keyof typeof statusMap] || status;
+  }
+
+  function getStatusStyle(status: string) {
+    const statusStyles = {
+      confirmed: styles.confirmedBadge,
+      pending: styles.pendingBadge,
+      cancelled: styles.cancelledBadge,
+      completed: styles.completedBadge
+    };
+    return statusStyles[status as keyof typeof statusStyles] || styles.pendingBadge;
+  }
 
   return (
     <View style={styles.container}>
@@ -28,48 +100,67 @@ export default function Appointments() {
       </View>
 
       <ScrollView style={styles.content}>
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Próximos Agendamentos</Text>
-          
-          {appointments.map(appointment => (
-            <TouchableOpacity key={appointment.id} style={styles.appointmentCard}>
-              <View style={styles.appointmentHeader}>
-                <Text style={styles.professionalName}>{appointment.professional}</Text>
-                <View style={[
-                  styles.statusBadge,
-                  appointment.status === 'confirmed' ? styles.confirmedBadge : styles.pendingBadge
-                ]}>
-                  <Text style={styles.statusText}>
-                    {appointment.status === 'confirmed' ? 'Confirmado' : 'Pendente'}
+        {loading ? (
+          <ActivityIndicator size="large" color="#1a73e8" style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {appointments.length > 0 ? 'Próximos Agendamentos' : 'Nenhum agendamento encontrado'}
+            </Text>
+            
+            {appointments.map(appointment => (
+              <TouchableOpacity 
+                key={appointment.appointment_id} 
+                style={styles.appointmentCard}
+              >
+                <View style={styles.appointmentHeader}>
+                  <Text style={styles.professionalName}>
+                    {appointment.professional.name}
                   </Text>
+                  <View style={[
+                    styles.statusBadge,
+                    getStatusStyle(appointment.status)
+                  ]}>
+                    <Text style={styles.statusText}>
+                      {getStatusText(appointment.status)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-              
-              <Text style={styles.serviceName}>{appointment.service}</Text>
-              
-              <View style={styles.appointmentDetails}>
-                <View style={styles.detailItem}>
-                  <CalendarIcon size={16} color="#666" />
-                  <Text style={styles.detailText}>{appointment.date}</Text>
+                
+                <Text style={styles.serviceName}>
+                  {appointment.description}
+                </Text>
+                
+                <View style={styles.appointmentDetails}>
+                  <View style={styles.detailItem}>
+                    <CalendarIcon size={16} color="#666" />
+                    <Text style={styles.detailText}>
+                      {formatDate(appointment.appointment_date)}
+                    </Text>
+                  </View>
+                  <View style={styles.detailItem}>
+                    <Clock size={16} color="#666" />
+                    <Text style={styles.detailText}>
+                      {formatTime(appointment.appointment_date)}
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.detailItem}>
-                  <Clock size={16} color="#666" />
-                  <Text style={styles.detailText}>{appointment.time}</Text>
-                </View>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.newAppointmentButton}>
-          <Text style={styles.newAppointmentText}>Novo Agendamento</Text>
-        </TouchableOpacity>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  cancelledBadge: {
+    backgroundColor: '#ffebee',
+  },
+  completedBadge: {
+    backgroundColor: '#e8f5e9',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

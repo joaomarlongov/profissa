@@ -1,7 +1,15 @@
 import { View, Text, Image, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { Settings, CreditCard, Bell, HelpCircle, LogOut } from 'lucide-react-native';
+import { useAuth } from '../contexts/AuthContext';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
+
+  const { user } = useAuth();
+  const [loggedUser, setLoggedUser] = useState<any>(null);
+
   const menuItems = [
     { icon: Settings, label: 'Configurações' },
     { icon: CreditCard, label: 'Pagamento' },
@@ -9,15 +17,26 @@ export default function Profile() {
     { icon: HelpCircle, label: 'Ajuda' },
   ];
 
+  useEffect(() => {
+    AsyncStorage.getItem('user').then((value) => {
+      if (value) {
+        const parsedValue = JSON.parse(value);
+        setLoggedUser(parsedValue);
+      }
+    });
+  }, []);
+
+
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Image
-          source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=500' }}
+          source={{ uri: loggedUser?.image }}
           style={styles.avatar}
         />
-        <Text style={styles.name}>João Silva</Text>
-        <Text style={styles.email}>joao.silva@email.com</Text>
+        <Text style={styles.name}>{loggedUser?.name}</Text>
+        <Text style={styles.email}>exemplo@gmail.com</Text>
       </View>
 
       <View style={styles.menuContainer}>
@@ -28,11 +47,6 @@ export default function Profile() {
           </TouchableOpacity>
         ))}
       </View>
-
-      <TouchableOpacity style={styles.logoutButton}>
-        <LogOut size={24} color="#ff4444" />
-        <Text style={styles.logoutText}>Sair</Text>
-      </TouchableOpacity>
     </ScrollView>
   );
 }
