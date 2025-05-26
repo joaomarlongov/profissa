@@ -66,6 +66,7 @@ export function AppointmentModal({ isVisible, onClose, professional }: Appointme
       if (error) throw error;
 
       Alert.alert('Sucesso', 'Agendamento realizado com sucesso!');
+      window.location.reload() // Refresh the page to show the new appointment
       onClose();
       setDescription('');
       setDate(new Date());
