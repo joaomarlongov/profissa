@@ -1,6 +1,6 @@
 import { View, Text, ScrollView, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { LogOut, Star } from 'lucide-react-native';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,6 +13,8 @@ export default function Home() {
   const { signOut } = useAuth();
   const { user } = useAuth();
   const [loggedUser, setLoggedUser] = useState<any>(null);
+  const hasReloaded = useRef(false);
+
 
   useEffect(() => {
     fetchUser();
